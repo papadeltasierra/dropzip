@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "dropzip"
+version = "0.1.0"
+description = "Tool to manage downloading DropBox archives via ZIP files."
+authors = ["Paul D.Smith <paul@pauldsmith.org.uk>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.32.3"
+dropbox = "^12.0.2"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
