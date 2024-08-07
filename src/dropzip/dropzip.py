@@ -18,9 +18,7 @@ from pathvalidate import sanitize_filepath
 import platform
 
 # Ensure all downloaded dropbox ZIPfiles can be identified.
-# !!PDS:
-# DOT_DROPBOX_ZIP = ".dp.zip"
-DOT_DROPBOX_ZIP = ".zip"
+DOT_DROPBOX_ZIP = ".dp.zip"
 
 log = logging.getLogger(__name__)
 logfile = logging.basicConfig(filename="dropzip.log", level=logging.DEBUG)
@@ -101,6 +99,13 @@ def download_file(args: Namespace, dbx: Dropbox, source: str) -> None:
     sources: List[str] = source.split("/")
     target: str = os.path.join(args.target, *sources)
     target = sanitize_filepath(target, platform=args.platform)
+
+    dirname: str = os.path.dirname(target)
+    try:
+        os.makedirs(dirname)
+    except FileExistsError:
+        pass
+
     with open(target, "wb") as t:
         t.write(rsp.content)
 
