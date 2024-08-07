@@ -9,10 +9,14 @@ from dropbox import Dropbox
 from dropbox.files import ListFolderResult, FileMetadata, FolderMetadata
 from dropbox.common import PathRoot
 from dropbox.exceptions import ApiError
+from dropbox.users import FullAccount
 from requests.models import Response
 from requests.exceptions import ConnectionError
 from zipfile import is_zipfile, ZipFile
 from time import sleep
+
+# Ensure all downloaded dropbox ZIPfiles can be identified.
+DOT_DROPBOX_ZIP = ".dp.zip"
 
 log = logging.getLogger(__name__)
 logfile = logging.basicConfig(filename="dropzip.log", level=logging.DEBUG)
@@ -83,8 +87,8 @@ def download_file(args: Namespace, dbx: Dropbox, source: str) -> None:
     _, rsp = dbx.files_download(source)
 
     # Write the result of the response to the target file.
-    target: str = os.path.join(args.target, source)
-    target = target.replace("/", "\\")
+    sources: List[str] = source.split("/")
+    target: str = os.path.join(args.target, sources)
     with open(target, "rb") as t:
         t.write(rsp.content)
 
@@ -123,7 +127,7 @@ def download_folder(args: Namespace, dbx: Dropbox, folder: str) -> None:
     # Also strip leading "/" from folder name as this confuses os.path.join().
     folders: list[str] = folder[1:].split("/")
     target: str = os.path.join(args.target, folders)
-    target = target + ".zip"
+    target = target + DOT_DROPBOX_ZIP
     log.debug("Folder: %s", folder)
     log.debug("Target: %s", target)
 
@@ -202,7 +206,7 @@ def unzip_all_files(args: Namespace) -> None:
     for dirpath, _, dirfiles in os.walk(args.target):
         filename: str
         for filename in dirfiles:
-            if filename.endswith(".zip"):
+            if filename.endswith(DOT_DROPBOX_ZIP):
                 fullname: str = os.path.join(dirpath, filename)
                 if is_zipfile(filename):
                     zp: ZipFile = ZipFile(filename)
@@ -224,8 +228,14 @@ def main(argv: List[str]) -> int:
     # Validate dropbox.
     log.info("Connecting to dropbox...")
     dbx: Dropbox = Dropbox(args.access_token)
-    xx = dbx.users_get_current_account()
-    pathroot: PathRoot = PathRoot("root", xx.root_info.root_namespace_id)
+
+    # The default Dropbox access is only at the scope of the user who provided
+    # the access token and cannot see the shared "team" folder.  So we have to
+    # create a new Dropbox at root scope to enable the shared folders to also
+    # be downloaded.
+    fullAccount: FullAccount = dbx.users_get_current_account()
+    log.debug("root namespace ID: %d", fullAccount.root_info.root_namespace_id)
+    pathroot: PathRoot = PathRoot("root", fullAccount.root_info.root_namespace_id)
     dbx_root: Dropbox = dbx.with_path_root(pathroot)
 
     # We will download all the directories found below the source folder,
@@ -234,6 +244,7 @@ def main(argv: List[str]) -> int:
 
     if args.unzip:
         # Attempt to unzip all ZIP files below the target directory.
+        log.info("Unzipping all ZIPfiles below the target directory")
         unzip_all_files(args)
 
     return 0
