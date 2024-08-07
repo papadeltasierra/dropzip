@@ -34,9 +34,9 @@ def parse_args(argv: List[str]) -> Namespace:
     parser = ArgumentParser(description="Application to download Dropbox files and folders")
     parser.add_argument("-v", "--verbose", action="store_true", help="Move verbose reporting of actions")
     parser.add_argument("-d", "--debug", action="store_true", help="Enable detailed 'debug' tracing")
-    parser.add_argument("-a", "--access-token", required="true", help="Dropbox 'access token'")
+    parser.add_argument("-a", "--access-token", required=True, help="Dropbox 'access token'")
     parser.add_argument("-s", "--source", default="", help="Root Dropbox folder from which to begin downloads")
-    parser.add_argument("-t", "--target", required="true", help="Root directory into which to download files & folders")
+    parser.add_argument("-t", "--target", required=True, help="Root directory into which to download files & folders")
     parser.add_argument("-u", "--unzip", action="store_true", help="Unzip all ZIPped folders after all downloads have completed")
     parser.add_argument("-k", "--skip", action="store_true", help="Skip folders for which a ZIPfile already exists")
 
@@ -53,7 +53,7 @@ def download_file(args: Namespace, dbx: Dropbox, source: str) -> None:
     # Write the result of the response to the target file.
     target: str = os.path.join(args.target, source)
     target = target.replace("/", "\\")
-    with open(target, "r") as t:
+    with open(target, "rb") as t:
         t.write(rsp.content)
 
 
@@ -102,9 +102,9 @@ def download_folder(args: Namespace, dbx: Dropbox, folder: str) -> None:
             pass
 
     if download:
-        log.info("Downloading folder '%s'...", folder)
-        attempt: int  = 0;
+        attempt: int  = 1;
         while True:
+            log.info("Downloading folder '%s'...", folder)
             try:
                 dirname: str = os.path.dirname(target)
                 try:
@@ -134,11 +134,11 @@ def download_folder(args: Namespace, dbx: Dropbox, folder: str) -> None:
 
             except ConnectionError as rd:
                 log.warning("Remote disconnected (attempt %d)...", attempt)
+                attempt = attempt + 1
                 if attempt >= 5:
                     log.error("Too many remote disconnections - failed")
                     raise rd
 
-                attempt = attempt + 1
                 sleep(2)
 
 
