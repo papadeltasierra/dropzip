@@ -117,12 +117,12 @@ def download_folder(args: Namespace, dbx: Dropbox, folder: str) -> None:
                 break
 
             except ApiError as dze:
-                if dze.is_too_many_files():
+                if dze.error.is_too_many_files():
                     log.warning("Download of '%s' failed (Too many files), trying to split...", folder)
                     download_contents(args, dbx, folder)
                     break
 
-                elif dze.is_too_large():
+                elif dze.error.is_too_large():
                     log.warning("Download of '%s' failed (ZIP file is too large), trying to split...", folder)
 
                     # Assume this is a nested folder and try to download the sub-folders.
