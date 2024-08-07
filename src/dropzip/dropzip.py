@@ -14,9 +14,13 @@ from requests.models import Response
 from requests.exceptions import ConnectionError
 from zipfile import is_zipfile, ZipFile
 from time import sleep
+from pathvalidate import sanitize_filepath
+import platform
 
 # Ensure all downloaded dropbox ZIPfiles can be identified.
-DOT_DROPBOX_ZIP = ".dp.zip"
+# !!PDS:
+# DOT_DROPBOX_ZIP = ".dp.zip"
+DOT_DROPBOX_ZIP = ".zip"
 
 log = logging.getLogger(__name__)
 logfile = logging.basicConfig(filename="dropzip.log", level=logging.DEBUG)
@@ -24,7 +28,6 @@ console = logging.StreamHandler(sys.stdout)
 console_formatter = logging.Formatter(fmt="%(message)s")
 console.setFormatter(console_formatter)
 log.addHandler(console)
-log.addHandler(logfile)
 log.setLevel(logging.DEBUG)
 
 
@@ -77,6 +80,14 @@ def parse_args(argv: List[str]) -> Namespace:
     )
 
     args = parser.parse_args(argv)
+
+    # Determine platform target and make useful for sanitize_filepath.
+    platform_system: str = platform.system()
+    if (platform_system not in ["Windows", "Linux"]):
+        platform_system = "universal"
+
+    setattr(args, "platform", platform_system)
+
     return args
 
 
@@ -88,8 +99,9 @@ def download_file(args: Namespace, dbx: Dropbox, source: str) -> None:
 
     # Write the result of the response to the target file.
     sources: List[str] = source.split("/")
-    target: str = os.path.join(args.target, sources)
-    with open(target, "rb") as t:
+    target: str = os.path.join(args.target, *sources)
+    target = sanitize_filepath(target, platform=args.platform)
+    with open(target, "wb") as t:
         t.write(rsp.content)
 
 
@@ -126,8 +138,9 @@ def download_folder(args: Namespace, dbx: Dropbox, folder: str) -> None:
     # if downloading to Windows.
     # Also strip leading "/" from folder name as this confuses os.path.join().
     folders: list[str] = folder[1:].split("/")
-    target: str = os.path.join(args.target, folders)
+    target: str = os.path.join(args.target, *folders)
     target = target + DOT_DROPBOX_ZIP
+    target = sanitize_filepath(target, platform=args.platform)
     log.debug("Folder: %s", folder)
     log.debug("Target: %s", target)
 
@@ -234,7 +247,7 @@ def main(argv: List[str]) -> int:
     # create a new Dropbox at root scope to enable the shared folders to also
     # be downloaded.
     fullAccount: FullAccount = dbx.users_get_current_account()
-    log.debug("root namespace ID: %d", fullAccount.root_info.root_namespace_id)
+    log.debug("root namespace ID: %s", fullAccount.root_info.root_namespace_id)
     pathroot: PathRoot = PathRoot("root", fullAccount.root_info.root_namespace_id)
     dbx_root: Dropbox = dbx.with_path_root(pathroot)
 
