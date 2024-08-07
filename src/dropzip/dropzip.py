@@ -6,9 +6,13 @@ import logging
 from argparse import Namespace, ArgumentParser
 from typing import List
 from dropbox import Dropbox
-from dropbox.files import ListFolderResult, DownloadZipError
+from dropbox.files import ListFolderResult, DownloadZipError, FileMetadata, FolderMetadata
+from dropbox.common import PathRoot
+from dropbox.exceptions import ApiError
 from requests.models import Response
+from requests.exceptions import ConnectionError
 from zipfile import is_zipfile, ZipFile
+from time import sleep
 
 log = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stdout)
@@ -27,13 +31,14 @@ def init_logging(args: Namespace) -> None:
 
 
 def parse_args(argv: List[str]) -> Namespace:
-    parser = ArgumentParser()
-    parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument("-d", "--debug", action="store_true")
-    parser.add_argument("-a", "--access-token", required="true")
-    parser.add_argument("-s", "--source", default=".")
-    parser.add_argument("-t", "--target", required="true")
-    parser.add_argument("-u", "--unzip", action="store_true")
+    parser = ArgumentParser(description="Application to download Dropbox files and folders")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Move verbose reporting of actions")
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable detailed 'debug' tracing")
+    parser.add_argument("-a", "--access-token", required="true", help="Dropbox 'access token'")
+    parser.add_argument("-s", "--source", default="", help="Root Dropbox folder from which to begin downloads")
+    parser.add_argument("-t", "--target", required="true", help="Root directory into which to download files & folders")
+    parser.add_argument("-u", "--unzip", action="store_true", help="Unzip all ZIPped folders after all downloads have completed")
+    parser.add_argument("-k", "--skip", action="store_true", help="Skip folders for which a ZIPfile already exists")
 
     args = parser.parse_args(argv)
     return args
@@ -54,40 +59,87 @@ def download_file(args: Namespace, dbx: Dropbox, source: str) -> None:
 
 def download_contents(args: Namespace, dbx: Dropbox, source: str) -> None:
     log.info("Downloading contents below '%s'...", source)
-    for entry in dbx.files_list_folder(source).entries:
-        item: str = source + "/" + entry.name
-        if isinstance(entry, dropbox.files.FileMetadata):
-            download_file(args, dbx, item)
-        elif isinstance(entry, dropbox.files.FolderMetadata):
-            download_folder(args, dbx, item)
+
+    listFolderResult: ListFolderResult
+    listFolderResult = dbx.files_list_folder(source)
+    while True:
+        for entry in listFolderResult.entries:
+            log.debug("Entry metadata: %s", str(entry))
+            item: str = source + "/" + entry.name
+
+            if isinstance(entry, FileMetadata):
+                download_file(args, dbx, item)
+            elif isinstance(entry, FolderMetadata):
+                download_folder(args, dbx, item)
+            else:
+                log.warning("Unrecognised item type: '%s', unable to download", type(entry))
+
+        if listFolderResult.has_more:
+            log.debug("is_more is True")
+            listfolderResult = dbx.files_list_folder_continue(listFolderResult.cursor)
         else:
-            log.warning("Unrecognised item type: '%s', unable to download", type(entry))
+            break
 
 
 def download_folder(args: Namespace, dbx: Dropbox, folder: str) -> None:
     # Warning; folders contain '/' separators to need to be converted to '\'
     # if downloading to Windows.
-    target: str = os.path.join(args.target, folder)
+    # Also strip leading "/" from folder name as this confuses os.path.join().
+    target: str = os.path.join(args.target, folder[1:])
+    target = target + ".zip"
     target = target.replace("/", "\\")
+    log.debug("Folder: %s", folder)
+    log.debug("Target: %s", target)
 
-    log.info("Downloading folder '%s'...", folder)
-    try:
-        dbx.files_download_zip_to_file(target, folder)
-        log.debug("Download was successful")
+    download: bool = True
+    if args.skip:
+        try:
+            status: os.stat_result = os.stat(target)
+            if status.st_size > 0:
+                log.info("Folder ZIPfile exists so skip downloading (again)")
+                download = False
+        except:
+            pass
 
-    except DownloadZipError as dze:
-        if dze.is_too_many_files():
-            log.warning("Download of '%s' failed (Too many files), trying to split...", folder)
-            download_contents(args, dbx, folder)
+    if download:
+        log.info("Downloading folder '%s'...", folder)
+        attempt: int  = 0;
+        while True:
+            try:
+                dirname: str = os.path.dirname(target)
+                try:
+                    os.makedirs(dirname)
+                except FileExistsError:
+                    pass
 
-        elif dze.is_too_large():
-            log.warning("Download of '%s' failed (ZIP file is too large), trying to split...", folder)
+                dbx.files_download_zip_to_file(target, folder)
+                log.debug("Download was successful")
+                break
 
-            # Assume this is a nested folder and try to download the sub-folders.
-            download_contents(args, dbx, folder)
+            except ApiError as dze:
+                if dze.is_too_many_files():
+                    log.warning("Download of '%s' failed (Too many files), trying to split...", folder)
+                    download_contents(args, dbx, folder)
+                    break
 
-        else:
-            log.warning("Download of '%s' failed (%s), trying to split...", folder, str(dze))
+                elif dze.is_too_large():
+                    log.warning("Download of '%s' failed (ZIP file is too large), trying to split...", folder)
+
+                    # Assume this is a nested folder and try to download the sub-folders.
+                    download_contents(args, dbx, folder)
+                    break
+
+                else:
+                    log.warning("Download of '%s' failed (%s), trying to split...", folder, str(dze))
+
+            except ConnectionError as rd:
+                log.warning("Remote disconnected (attempt %d)...", attempt)
+                if attempt >= 5:
+                    log.error("Too many remote disconnections - failed")
+                    raise rd
+
+                attempt = attempt + 1
+                sleep(2)
 
 
 def unzip_all_files(args: Namespace) -> None:
@@ -117,11 +169,13 @@ def main(argv: List[str]) -> int:
     # Validate dropbox.
     log.info("Connecting to dropbox...")
     dbx: Dropbox = Dropbox(args.access_token)
-    dbx.users_get_current_account()
+    xx = dbx.users_get_current_account()
+    pathroot: PathRoot = PathRoot("root", xx.root_info.root_namespace_id)
+    dbx_root: Dropbox = dbx.with_path_root(pathroot)
 
     # We will download all the directories found below the source folder,
     # recursing if requireq because the folder is too large.
-    download_contents(args, dbx, args.source)
+    download_contents(args, dbx_root, args.source)
 
     if args.unzip:
         # Attempt to unzip all ZIP files below the target directory.
