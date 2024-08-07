@@ -1,0 +1,11 @@
+# action.yml
+name: 'Test the package'
+description: 'Run testing againdt the package'
+inputs:
+  project:
+    description: relative directory path (relative to Git root) to the project to be build
+    required: true
+
+runs:
+  - name: Black
+    run: black .
