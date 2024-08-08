@@ -81,7 +81,7 @@ def parse_args(argv: List[str]) -> Namespace:
 
     # Determine platform target and make useful for sanitize_filepath.
     platform_system: str = platform.system()
-    if (platform_system not in ["Windows", "Linux"]):
+    if platform_system not in ["Windows", "Linux"]:
         platform_system = "universal"
 
     setattr(args, "platform", platform_system)
