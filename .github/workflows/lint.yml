@@ -38,7 +38,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Install mypy
-        run: pip install mypy
+        run: pip install mypy types-requests
       - name: Run mypy
         uses: sasanquaneuf/mypy-github-action@releases/v1
         with:

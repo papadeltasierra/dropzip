@@ -5,23 +5,27 @@ import os
 import logging
 from argparse import Namespace, ArgumentParser
 from typing import List
-from dropbox import Dropbox
-from dropbox.files import ListFolderResult, FileMetadata, FolderMetadata
-from dropbox.common import PathRoot
-from dropbox.exceptions import ApiError
-from dropbox.users import FullAccount
+from dropbox import Dropbox  # type: ignore[import-untyped]
+from dropbox.files import (  # type: ignore[import-untyped]
+    ListFolderResult,
+    FileMetadata,
+    FolderMetadata,
+)
+from dropbox.common import PathRoot  # type: ignore[import-untyped]
+from dropbox.exceptions import ApiError  # type: ignore[import-untyped]
+from dropbox.users import FullAccount  # type: ignore[import-untyped]
 from requests.models import Response
 from requests.exceptions import ConnectionError
 from zipfile import is_zipfile, ZipFile
 from time import sleep
-from pathvalidate import sanitize_filepath
+from pathvalidate import sanitize_filepath  # type: ignore[import-untyped]
 import platform
 
 # Ensure all downloaded dropbox ZIPfiles can be identified.
 DOT_DROPBOX_ZIP = ".dp.zip"
 
 log = logging.getLogger(__name__)
-logfile = logging.basicConfig(filename="dropzip.log", level=logging.DEBUG)
+logging.basicConfig(filename="dropzip.log", level=logging.DEBUG)
 console = logging.StreamHandler(sys.stdout)
 console_formatter = logging.Formatter(fmt="%(message)s")
 console.setFormatter(console_formatter)
