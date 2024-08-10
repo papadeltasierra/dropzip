@@ -25,7 +25,6 @@ import platform
 DOT_DROPBOX_ZIP = ".dp.zip"
 
 log = logging.getLogger(__name__)
-logging.basicConfig(filename="dropzip.log", level=logging.DEBUG)
 console = logging.StreamHandler(sys.stdout)
 console_formatter = logging.Formatter(fmt="%(message)s")
 console.setFormatter(console_formatter)
@@ -40,6 +39,8 @@ def init_logging(args: Namespace) -> None:
         console.setLevel(logging.INFO)
     if args.debug:
         console.setLevel(logging.DEBUG)
+    if args.log_file:
+        logging.basicConfig(filename=args.log_file, level=logging.DEBUG)
 
 
 def parse_args(argv: List[str]) -> Namespace:
@@ -79,6 +80,12 @@ def parse_args(argv: List[str]) -> Namespace:
         "--skip",
         action="store_true",
         help="Skip folders for which a ZIPfile already exists",
+    )
+    parser.add_argument(
+        "-l",
+        "--log-file",
+        help="Debugging logfile",
+        default=""
     )
 
     args = parser.parse_args(argv)
