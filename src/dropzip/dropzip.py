@@ -81,12 +81,7 @@ def parse_args(argv: List[str]) -> Namespace:
         action="store_true",
         help="Skip folders for which a ZIPfile already exists",
     )
-    parser.add_argument(
-        "-l",
-        "--log-file",
-        help="Debugging logfile",
-        default=""
-    )
+    parser.add_argument("-l", "--log-file", help="Debugging logfile", default="")
 
     args = parser.parse_args(argv)
 
@@ -102,23 +97,51 @@ def parse_args(argv: List[str]) -> Namespace:
 
 def download_file(args: Namespace, dbx: Dropbox, source: str) -> None:
     """Download a single file from a Dropbox folder"""
-    log.info("Downloading file '%s'...", source)
     rsp: Response
-    _, rsp = dbx.files_download(source)
 
     # Write the result of the response to the target file.
     sources: List[str] = source.split("/")
     target: str = os.path.join(args.target, *sources)
     target = sanitize_filepath(target, platform=args.platform)
 
-    dirname: str = os.path.dirname(target)
-    try:
-        os.makedirs(dirname)
-    except FileExistsError:
-        pass
+    download: bool = True
+    if args.skip:
+        try:
+            status: os.stat_result = os.stat(target)
+            if status.st_size > 0:
+                log.info("File '%s' exists so skip downloading (again)", target)
+                download = False
+        except FileNotFoundError:
+            pass
 
-    with open(target, "wb") as t:
-        t.write(rsp.content)
+    if download:
+        # Repeat the download attempt up to 5 times to handle network errors
+        # as well as handling Dropbox errors that require the folder to be
+        # downloaded in pieces.
+        attempt: int = 1
+        while True:
+            log.info("Downloading file '%s'...", source)
+            try:
+                dirname: str = os.path.dirname(target)
+                try:
+                    os.makedirs(dirname)
+                except FileExistsError:
+                    pass
+
+                _, rsp = dbx.files_download(source)
+                with open(target, "wb") as t:
+                    t.write(rsp.content)
+                log.debug("Download was successful")
+                break
+
+            except ConnectionError as rd:
+                log.warning("Remote disconnected (attempt %d)...", attempt)
+                attempt = attempt + 1
+                if attempt >= 5:
+                    log.error("Too many remote disconnections - failed")
+                    raise rd
+
+                sleep(2)
 
 
 def download_contents(args: Namespace, dbx: Dropbox, source: str) -> None:
@@ -165,7 +188,7 @@ def download_folder(args: Namespace, dbx: Dropbox, folder: str) -> None:
         try:
             status: os.stat_result = os.stat(target)
             if status.st_size > 0:
-                log.info("Folder ZIPfile exists so skip downloading (again)")
+                log.info("Folder '%s' exists so skip downloading (again)", target)
                 download = False
         except FileNotFoundError:
             pass
