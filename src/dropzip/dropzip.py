@@ -147,7 +147,7 @@ def download_file(args: Namespace, dbx: Dropbox, source: str) -> None:
                     except FileNotFoundError:
                         pass
 
-                    except Exception as ee:
+                    except Exception:
                         log.exception("Deletion of part-file '%s' failed.")
 
                     raise rd
