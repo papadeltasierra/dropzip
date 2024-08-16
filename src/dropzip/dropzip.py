@@ -138,7 +138,18 @@ def download_file(args: Namespace, dbx: Dropbox, source: str) -> None:
                 log.warning("Remote disconnected (attempt %d)...", attempt)
                 attempt = attempt + 1
                 if attempt >= 5:
-                    log.error("Too many remote disconnections - failed")
+                    log.exception("Too many remote disconnections - failed")
+
+                    # Make sure we delete any part-downloaded file.
+                    try:
+                        os.remove(target)
+
+                    except FileNotFoundError:
+                        pass
+
+                    except Exception:
+                        log.exception("Deletion of part-file '%s' failed.")
+
                     raise rd
 
                 sleep(2)
@@ -245,7 +256,7 @@ def download_folder(args: Namespace, dbx: Dropbox, folder: str) -> None:
                 log.warning("Remote disconnected (attempt %d)...", attempt)
                 attempt = attempt + 1
                 if attempt >= 5:
-                    log.error("Too many remote disconnections - failed")
+                    log.exception("Too many remote disconnections - failed")
                     raise rd
 
                 sleep(2)
