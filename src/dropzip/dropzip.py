@@ -102,7 +102,7 @@ def parse_args(argv: List[str]) -> Namespace:
 
 def download_file(args: Namespace, dbx: Dropbox, source: str) -> None:
     """Download a single file from a Dropbox folder"""
-    log.debug("Downloading file '%s'...", source)
+    log.info("Downloading file '%s'...", source)
     rsp: Response
     _, rsp = dbx.files_download(source)
 
