@@ -35,10 +35,10 @@ log.setLevel(logging.DEBUG)
 def init_logging(args: Namespace) -> None:
     """Initialize console logging levels based on user input."""
     console.setLevel(logging.WARNING)
-    if args.verbose:
-        console.setLevel(logging.INFO)
-    if args.debug:
+    if args.verbose >= 2:
         console.setLevel(logging.DEBUG)
+    elif args.verbose >= 1:
+        console.setLevel(logging.INFO)
     if args.log_file:
         logging.basicConfig(filename=args.log_file, level=logging.DEBUG)
 
@@ -49,10 +49,14 @@ def parse_args(argv: List[str]) -> Namespace:
         description="Application to download Dropbox files and folders"
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Move verbose reporting of actions"
-    )
-    parser.add_argument(
-        "-d", "--debug", action="store_true", help="Enable detailed 'debug' tracing"
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help=(
+            "More verbose reporting of actions; provide this option twice to see "
+            "debug output."
+        ),
     )
     parser.add_argument(
         "-a", "--access-token", required=True, help="Dropbox 'access token'"

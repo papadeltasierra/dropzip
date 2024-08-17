@@ -106,15 +106,14 @@ You are now ready to use the app. in anger.
 
 # Usage
 ```
-C:\Users\Someone\git\dropzip>poetry run python src\dropzip\dropzip.py --help
-usage: dropzip.py [-h] [-v] [-d] -a ACCESS_TOKEN [-s SOURCE] -t TARGET [-u] [-k]
+C:\Users\Someone\git\dropzip>C:\Users\PDS\git\dropzip>poetry run python src\dropzip\dropzip.py --help
+usage: dropzip.py [-h] [-v] -a ACCESS_TOKEN [-s SOURCE] -t TARGET [-u] [-k] [-l LOG_FILE]
 
 Application to download Dropbox files and folders
 
 options:
   -h, --help            show this help message and exit
-  -v, --verbose         Move verbose reporting of actions
-  -d, --debug           Enable detailed 'debug' tracing
+  -v, --verbose         More verbose reporting of actions; provide this option twice to see debug output.
   -a ACCESS_TOKEN, --access-token ACCESS_TOKEN
                         Dropbox 'access token'
   -s SOURCE, --source SOURCE
@@ -123,8 +122,9 @@ options:
                         Root directory into which to download files & folders
   -u, --unzip           Unzip all ZIPped folders after all downloads have completed
   -k, --skip            Skip folders for which a ZIPfile already exists
+  -l LOG_FILE, --log-file LOG_FILE
+                        Debugging logfile
 ```
-
 
 > Recomended: I suggest always using the `-v` or `--verbose` option as this will show you what [dropzip] is up to and gives you that _warm fuzzy feeling_ as you see it is downloading your files and folders.  Without this option, [dropzip] will silently do its work and it could be hours before _just finishes_.
 >
