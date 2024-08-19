@@ -174,13 +174,13 @@ If things go wrong then errors will appear on screen and they might explain what
 It has been observed that the [Dropbox for Python Developers] APIs sometimes hit
 a _remote network disconnect_ exception.  This could be a problem at the [Dropbox] server or perhaps
 one of the underlying Pythion libraries used by [Dropbox for Python Developers].
-In any case when this happens, [Dropzip] will make 5 (five) attempts to retry the file/folder download before it gives up and fails that particular download.
+In any case when this happens, [Dropzip] will make 5 (five) attempts to retry the file/folder download before it gives up and fails that particular download.  This appears to be sufficient for downloads to be completed successfully and I have managed to download 10s GB of files in a single session.
 
 ### Dropbox Issue?
 When attempting to download an entire set of Dropbox folders (personal and Team
 folders as a single action), the error below was encountered.
 
-This error has been reported to Dropbox who are investivated under this bug report: [Consistent 500 error, no status text, from files_download_zip_to_file].
+This error has been reported to Dropbox who are investigating under this bug report: [Consistent 500 error, no status text, from files_download_zip_to_file].
 
 ```
 File "C:\Users\Someone\git\dropzip\src\dropzip\dropzip.py", line 176, in download_folder
